@@ -6,96 +6,43 @@ import (
 )
 
 type SessionStore interface {
-	Get(session string) (string, bool)
-	Set(session, ticket string) error
-	Del(session string) error
-}
-
-type TicketStore interface {
-	Get(ticket string) (parser.Attributes, bool)
-	Set(ticket string, attributes parser.Attributes) error
-	Del(ticket string) error
-}
-
-type ticketStore struct {
-	mu    sync.RWMutex
-	store map[string]parser.Attributes
-}
-
-var _ TicketStore = &ticketStore{}
-
-func DefaultTicketStore() TicketStore {
-	return &ticketStore{
-		mu:    sync.RWMutex{},
-		store: map[string]parser.Attributes{},
-	}
-}
-
-func (s *ticketStore) Get(ticket string) (parser.Attributes, bool) {
-	s.mu.RLock()
-
-	t, ok := s.store[ticket]
-	s.mu.RUnlock()
-
-	if !ok {
-		return nil, false
-	}
-
-	return t, true
-}
-
-func (s *ticketStore) Set(ticket string, attr parser.Attributes) error {
-	s.mu.Lock()
-
-	s.store[ticket] = attr
-
-	s.mu.Unlock()
-	return nil
-}
-
-func (s *ticketStore) Del(ticket string) error {
-	s.mu.Lock()
-	delete(s.store, ticket)
-	s.mu.Unlock()
-	return nil
+	Get(sessionID string) (parser.Attributes, bool)
+	Set(sessionID string, attributes parser.Attributes) error
+	Del(sessionID string) error
 }
 
 type sessionStore struct {
 	mu    sync.RWMutex
-	store map[string]string
+	store map[string]parser.Attributes
 }
 
 var _ SessionStore = &sessionStore{}
 
 func DefaultSessionStore() SessionStore {
 	return &sessionStore{
-		mu:    sync.RWMutex{},
-		store: map[string]string{},
+		store: make(map[string]parser.Attributes),
 	}
 }
 
-func (s *sessionStore) Get(session string) (string, bool) {
+func (s *sessionStore) Get(sessionID string) (parser.Attributes, bool) {
 	s.mu.RLock()
-	t, ok := s.store[session]
+	a, ok := s.store[sessionID]
 	s.mu.RUnlock()
 
-	if !ok {
-		return "", false
-	}
-
-	return t, true
+	return a, ok
 }
 
-func (s *sessionStore) Set(session, ticket string) error {
+func (s *sessionStore) Set(sessionID string, attr parser.Attributes) error {
 	s.mu.Lock()
-	s.store[session] = ticket
+	s.store[sessionID] = attr
 	s.mu.Unlock()
 	return nil
 }
 
-func (s *sessionStore) Del(session string) error {
+func (s *sessionStore) Del(sessionID string) error {
 	s.mu.Lock()
-	delete(s.store, session)
+	delete(s.store, sessionID)
 	s.mu.Unlock()
+
 	return nil
 }

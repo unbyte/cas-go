@@ -2,7 +2,6 @@ package cas
 
 import (
 	"errors"
-	"fmt"
 	"github.com/unbyte/cas-go/api"
 	"github.com/unbyte/cas-go/internal/utils"
 	"github.com/unbyte/cas-go/parser"
@@ -25,14 +24,12 @@ type Client interface {
 
 	API() api.API
 	SessionStore() SessionStore
-	TicketStore() TicketStore
 }
 
 type client struct {
 	apiInstance     api.API
 	client          *http.Client
 	sessionStore    SessionStore
-	ticketStore     TicketStore
 	preferredFormat string
 }
 
@@ -43,7 +40,6 @@ type Option struct {
 	PreferredFormat string
 	APIInstance     api.API
 	SessionStore    SessionStore
-	TicketStore     TicketStore
 }
 
 func New(option Option) Client {
@@ -55,7 +51,6 @@ func New(option Option) Client {
 		client:          &http.Client{Timeout: option.ValidateTimeout},
 		preferredFormat: option.PreferredFormat,
 		sessionStore:    option.SessionStore,
-		ticketStore:     option.TicketStore,
 	}
 }
 
@@ -66,18 +61,10 @@ func (c *client) RedirectToLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *client) ValidateTicket(ticket string) (parser.Attributes, error) {
-	if c.ticketStore != nil {
-		if a, ok := c.ticketStore.Get(ticket); ok {
-			return a, nil
-		}
-	}
-
 	u := c.apiInstance.ValidateURL(api.ValidateOption{
 		Ticket: ticket,
 		Format: c.preferredFormat,
 	})
-
-	fmt.Println(u)
 
 	body, header, err := utils.GetRequest(c.client, u)
 	if err != nil {
@@ -85,29 +72,21 @@ func (c *client) ValidateTicket(ticket string) (parser.Attributes, error) {
 	}
 	// parser
 	ct := header.Get("Content-Type")
-	p, ok := parser.GetParser(ct)
+	p, ok := c.apiInstance.GetParser(ct)
 	if !ok {
 		return nil, errors.New("no parser for content-type " + ct)
 	}
 	// result
 	r, success := p(body)
 	if !success {
-		return nil, errors.New("fail")
-	}
-	if c.ticketStore != nil {
-		_ = c.ticketStore.Set(ticket, r)
+		return r, errors.New("fail")
 	}
 	return r, nil
 }
 
 func (c *client) ValidateSession(r *http.Cookie) (parser.Attributes, error) {
-	if t, ok := c.sessionStore.Get(r.Value); ok {
-		a, err := c.ValidateTicket(t)
-		if err != nil {
-			// validate fail
-			_ = c.sessionStore.Del(r.Value)
-		}
-		return a, err
+	if a, ok := c.sessionStore.Get(r.Value); ok {
+		return a, nil
 	}
 	return nil, errors.New("it's a new session")
 }
@@ -116,12 +95,12 @@ func (c *client) Validate(w http.ResponseWriter, r *http.Request, cookieName str
 	if ticket := r.URL.Query().Get("ticket"); ticket != "" {
 		a, err := c.ValidateTicket(ticket)
 		if err != nil {
-			return nil, err
+			return a, err
 		}
 		// success, save
 		sessionID := utils.GenerateSessionID()
-		if err = c.sessionStore.Set(sessionID, ticket); err != nil {
-			return nil, err
+		if err = c.sessionStore.Set(sessionID, a); err != nil {
+			return a, err
 		}
 		http.SetCookie(w, &http.Cookie{
 			Name:     cookieName,
@@ -140,10 +119,6 @@ func (c *client) Validate(w http.ResponseWriter, r *http.Request, cookieName str
 
 func (c *client) SessionStore() SessionStore {
 	return c.sessionStore
-}
-
-func (c *client) TicketStore() TicketStore {
-	return c.ticketStore
 }
 
 func (c *client) API() api.API {

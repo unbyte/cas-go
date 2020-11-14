@@ -1,12 +1,15 @@
 package api
 
 import (
+	"github.com/clbanning/mxj/v2/x2j-wrapper"
+	"github.com/unbyte/cas-go/parser"
 	"net/url"
 	"strings"
 )
 
 type v2 struct {
 	ServiceURL, ServerURL string
+	parsers
 }
 
 func (a *v2) LoginURL(option *LoginOption) string {
@@ -75,9 +78,36 @@ func (a *v2) validateURL(option *ValidateOption, endpoint string) string {
 
 var _ API = &v2{}
 
+func v2ParseXML(content []byte) (parser.Attributes, bool) {
+	result := make(map[string]interface{})
+
+	if err := x2j.Unmarshal(content, &result); err != nil {
+		return nil, false
+	}
+
+	response := result["serviceResponse"].(map[string]interface{})
+	successResponse, ok := response["authenticationSuccess"]
+
+	if !ok {
+		failureResponse, ok := response["authenticationFailure"].(map[string]interface{})
+		if !ok {
+			return nil, false
+		}
+		return map[string]interface{}{
+			"code":        failureResponse["-code"],
+			"description": failureResponse["#text"],
+		}, false
+	}
+
+	return successResponse.(map[string]interface{}), true
+}
+
 func NewAPIv2(serverURL, serviceURL string) API {
 	return &v2{
 		ServiceURL: serviceURL,
 		ServerURL:  serverURL,
+		parsers: parsers{
+			"application/xml": v2ParseXML,
+		},
 	}
 }
