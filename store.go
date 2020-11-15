@@ -1,30 +1,29 @@
 package cas
 
 import (
-	"github.com/unbyte/cas-go/parser"
 	"sync"
 )
 
-type AttributesStore interface {
-	Get(sessionID string) (parser.Attributes, bool)
-	Set(sessionID string, attributes parser.Attributes) error
+type Store interface {
+	Get(sessionID string) (interface{}, bool)
+	Set(sessionID string, data interface{}) error
 	Del(sessionID string) error
 }
 
-type attributesStore struct {
+type store struct {
 	mu    sync.RWMutex
-	store map[string]parser.Attributes
+	store map[string]interface{}
 }
 
-var _ AttributesStore = &attributesStore{}
+var _ Store = &store{}
 
-func DefaultAttributesStore() AttributesStore {
-	return &attributesStore{
-		store: make(map[string]parser.Attributes),
+func DefaultStore() Store {
+	return &store{
+		store: make(map[string]interface{}),
 	}
 }
 
-func (s *attributesStore) Get(sessionID string) (parser.Attributes, bool) {
+func (s *store) Get(sessionID string) (interface{}, bool) {
 	s.mu.RLock()
 	a, ok := s.store[sessionID]
 	s.mu.RUnlock()
@@ -32,14 +31,15 @@ func (s *attributesStore) Get(sessionID string) (parser.Attributes, bool) {
 	return a, ok
 }
 
-func (s *attributesStore) Set(sessionID string, attr parser.Attributes) error {
+func (s *store) Set(sessionID string, attr interface{}) error {
 	s.mu.Lock()
 	s.store[sessionID] = attr
 	s.mu.Unlock()
+
 	return nil
 }
 
-func (s *attributesStore) Del(sessionID string) error {
+func (s *store) Del(sessionID string) error {
 	s.mu.Lock()
 	delete(s.store, sessionID)
 	s.mu.Unlock()

@@ -78,7 +78,7 @@ func (a *v2) validateURL(option *ValidateOption, endpoint string) string {
 
 var _ API = &v2{}
 
-func v2ParseXML(content []byte) (parser.Attributes, bool) {
+func v2ParseXML(content []byte) (*parser.Result, bool) {
 	result := make(map[string]interface{})
 
 	if err := x2j.Unmarshal(content, &result); err != nil {
@@ -93,11 +93,11 @@ func v2ParseXML(content []byte) (parser.Attributes, bool) {
 		if !ok {
 			return nil, false
 		}
-		return parser.NewFailureAttributes(
+		return parser.NewFailureResult(
 			failureResponse["-code"], failureResponse["#text"]), false
 	}
 
-	return successResponse.(map[string]interface{}), true
+	return parser.NewSuccessResult(successResponse.(map[string]interface{})), true
 }
 
 func NewAPIv2(serverURL, serviceURL string) API {

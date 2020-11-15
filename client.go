@@ -12,26 +12,27 @@ import (
 type Client interface {
 	RedirectToLogin(w http.ResponseWriter, r *http.Request)
 
-	// ValidateTicket validates ticket and if success, return parsed Attributes
-	ValidateTicket(ticket string) (parser.Attributes, error)
+	// ValidateTicket validates ticket and if success, return data
+	ValidateTicket(ticket string) (interface{}, error)
 
-	// ValidateSession validates session (ticket) and if success, return parsed Attributes
-	ValidateSession(sessionID string) (parser.Attributes, error)
+	// ValidateSession validates session (ticket) and if success, return saved data
+	ValidateSession(sessionID string) (interface{}, error)
 
 	// Validate validates session and if success, save session and write cookie to client
-	Validate(w http.ResponseWriter, r *http.Request) (parser.Attributes, error)
+	Validate(w http.ResponseWriter, r *http.Request) (interface{}, error)
 
 	API() api.API
 
-	AttributesStore() AttributesStore
+	Store() Store
 }
 
 type client struct {
 	apiInstance     api.API
 	client          *http.Client
-	attributesStore AttributesStore
+	store           Store
 	preferredFormat string
 	sessionManager  SessionManager
+	resultHandler   parser.ResultHandler
 }
 
 var _ Client = &client{}
@@ -40,23 +41,25 @@ type Option struct {
 	ValidateTimeout time.Duration
 	PreferredFormat string
 	APIInstance     api.API
-	AttributesStore AttributesStore
+	Store           Store
 	SessionManager  SessionManager
+	ResultHandler   parser.ResultHandler
 }
 
 func New(option Option) Client {
-	if option.AttributesStore == nil {
-		panic("AttributesStore can't be nil")
+	if option.Store == nil {
+		option.Store = DefaultStore()
 	}
 	if option.SessionManager == nil {
-		panic("SessionManager can't be nil")
+		option.SessionManager = DefaultSessionManager("")
 	}
 	return &client{
 		apiInstance:     option.APIInstance,
 		client:          &http.Client{Timeout: option.ValidateTimeout},
 		preferredFormat: option.PreferredFormat,
-		attributesStore: option.AttributesStore,
+		store:           option.Store,
 		sessionManager:  option.SessionManager,
+		resultHandler:   option.ResultHandler,
 	}
 }
 
@@ -66,7 +69,7 @@ func (c *client) RedirectToLogin(w http.ResponseWriter, r *http.Request) {
 	}), http.StatusFound)
 }
 
-func (c *client) ValidateTicket(ticket string) (parser.Attributes, error) {
+func (c *client) ValidateTicket(ticket string) (interface{}, error) {
 	u := c.apiInstance.ValidateURL(api.ValidateOption{
 		Ticket: ticket,
 		Format: c.preferredFormat,
@@ -85,36 +88,39 @@ func (c *client) ValidateTicket(ticket string) (parser.Attributes, error) {
 	// result
 	r, success := p(body)
 	if !success {
-		return r, r.FailureReason()
+		return nil, r.FailureReason()
+	}
+	if c.resultHandler != nil {
+		return c.resultHandler(r), nil
 	}
 	return r, nil
 }
 
-func (c *client) ValidateSession(sessionID string) (parser.Attributes, error) {
-	if a, ok := c.attributesStore.Get(sessionID); ok {
-		return a, nil
+func (c *client) ValidateSession(sessionID string) (interface{}, error) {
+	if data, ok := c.store.Get(sessionID); ok {
+		return data, nil
 	}
-	return nil, errors.New("it's a new session")
+	return nil, errors.New("it's data new session")
 }
 
-func (c *client) Validate(w http.ResponseWriter, r *http.Request) (parser.Attributes, error) {
+func (c *client) Validate(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	if ticket := r.URL.Query().Get("ticket"); ticket != "" {
-		a, err := c.ValidateTicket(ticket)
+		data, err := c.ValidateTicket(ticket)
 		if err != nil {
-			return a, err
+			return data, err
 		}
 		// success, save
 		sessionID := utils.GenerateSessionID()
 		// ignore errors
-		//if err = c.attributesStore.Set(sessionID, a); err != nil {
-		//	return a, err
+		//if err = c.store.Set(sessionID, data); err != nil {
+		//	return data, err
 		//}
 		//if err := c.sessionManager.Set(w, r, sessionID); err != nil {
-		//	return a, err
+		//	return data, err
 		//}
-		_ = c.attributesStore.Set(sessionID, a)
+		_ = c.store.Set(sessionID, data)
 		_ = c.sessionManager.Set(w, r, sessionID)
-		return a, nil
+		return data, nil
 	}
 	sessionID, ok := c.sessionManager.Get(r)
 	if !ok {
@@ -123,8 +129,8 @@ func (c *client) Validate(w http.ResponseWriter, r *http.Request) (parser.Attrib
 	return c.ValidateSession(sessionID)
 }
 
-func (c *client) AttributesStore() AttributesStore {
-	return c.attributesStore
+func (c *client) Store() Store {
+	return c.store
 }
 
 func (c *client) API() api.API {
