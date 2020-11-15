@@ -18,7 +18,7 @@ type attributesStore struct {
 
 var _ AttributesStore = &attributesStore{}
 
-func DefaultSessionStore() AttributesStore {
+func DefaultAttributesStore() AttributesStore {
 	return &attributesStore{
 		store: make(map[string]parser.Attributes),
 	}
