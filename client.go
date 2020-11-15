@@ -6,7 +6,6 @@ import (
 	"github.com/unbyte/cas-go/internal/utils"
 	"github.com/unbyte/cas-go/parser"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -17,20 +16,22 @@ type Client interface {
 	ValidateTicket(ticket string) (parser.Attributes, error)
 
 	// ValidateSession validates session (ticket) and if success, return parsed Attributes
-	ValidateSession(r *http.Cookie) (parser.Attributes, error)
+	ValidateSession(sessionID string) (parser.Attributes, error)
 
 	// Validate validates session and if success, save session and write cookie to client
-	Validate(w http.ResponseWriter, r *http.Request, cookieName string) (parser.Attributes, error)
+	Validate(w http.ResponseWriter, r *http.Request) (parser.Attributes, error)
 
 	API() api.API
-	SessionStore() SessionStore
+
+	AttributesStore() AttributesStore
 }
 
 type client struct {
 	apiInstance     api.API
 	client          *http.Client
-	sessionStore    SessionStore
+	attributesStore AttributesStore
 	preferredFormat string
+	sessionManager  SessionManager
 }
 
 var _ Client = &client{}
@@ -39,18 +40,23 @@ type Option struct {
 	ValidateTimeout time.Duration
 	PreferredFormat string
 	APIInstance     api.API
-	SessionStore    SessionStore
+	AttributesStore AttributesStore
+	SessionManager  SessionManager
 }
 
 func New(option Option) Client {
-	if option.SessionStore == nil {
-		panic("sessionStore can't be nil")
+	if option.AttributesStore == nil {
+		panic("AttributesStore can't be nil")
+	}
+	if option.SessionManager == nil {
+		panic("SessionManager can't be nil")
 	}
 	return &client{
 		apiInstance:     option.APIInstance,
 		client:          &http.Client{Timeout: option.ValidateTimeout},
 		preferredFormat: option.PreferredFormat,
-		sessionStore:    option.SessionStore,
+		attributesStore: option.AttributesStore,
+		sessionManager:  option.SessionManager,
 	}
 }
 
@@ -79,19 +85,19 @@ func (c *client) ValidateTicket(ticket string) (parser.Attributes, error) {
 	// result
 	r, success := p(body)
 	if !success {
-		return r, errors.New("fail")
+		return r, r.FailureReason()
 	}
 	return r, nil
 }
 
-func (c *client) ValidateSession(r *http.Cookie) (parser.Attributes, error) {
-	if a, ok := c.sessionStore.Get(r.Value); ok {
+func (c *client) ValidateSession(sessionID string) (parser.Attributes, error) {
+	if a, ok := c.attributesStore.Get(sessionID); ok {
 		return a, nil
 	}
 	return nil, errors.New("it's a new session")
 }
 
-func (c *client) Validate(w http.ResponseWriter, r *http.Request, cookieName string) (parser.Attributes, error) {
+func (c *client) Validate(w http.ResponseWriter, r *http.Request) (parser.Attributes, error) {
 	if ticket := r.URL.Query().Get("ticket"); ticket != "" {
 		a, err := c.ValidateTicket(ticket)
 		if err != nil {
@@ -99,26 +105,26 @@ func (c *client) Validate(w http.ResponseWriter, r *http.Request, cookieName str
 		}
 		// success, save
 		sessionID := utils.GenerateSessionID()
-		if err = c.sessionStore.Set(sessionID, a); err != nil {
-			return a, err
-		}
-		http.SetCookie(w, &http.Cookie{
-			Name:     cookieName,
-			Value:    url.QueryEscape(sessionID),
-			Path:     "/",
-			HttpOnly: true,
-		})
+		// ignore errors
+		//if err = c.attributesStore.Set(sessionID, a); err != nil {
+		//	return a, err
+		//}
+		//if err := c.sessionManager.Set(w, r, sessionID); err != nil {
+		//	return a, err
+		//}
+		_ = c.attributesStore.Set(sessionID, a)
+		_ = c.sessionManager.Set(w, r, sessionID)
 		return a, nil
 	}
-	cookie, err := r.Cookie(cookieName)
-	if err != nil {
-		return nil, err
+	sessionID, ok := c.sessionManager.Get(r)
+	if !ok {
+		return nil, errors.New("it's an empty session")
 	}
-	return c.ValidateSession(cookie)
+	return c.ValidateSession(sessionID)
 }
 
-func (c *client) SessionStore() SessionStore {
-	return c.sessionStore
+func (c *client) AttributesStore() AttributesStore {
+	return c.attributesStore
 }
 
 func (c *client) API() api.API {

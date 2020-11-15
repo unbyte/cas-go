@@ -93,10 +93,8 @@ func v2ParseXML(content []byte) (parser.Attributes, bool) {
 		if !ok {
 			return nil, false
 		}
-		return map[string]interface{}{
-			"code":        failureResponse["-code"],
-			"description": failureResponse["#text"],
-		}, false
+		return parser.NewFailureAttributes(
+			failureResponse["-code"], failureResponse["#text"]), false
 	}
 
 	return successResponse.(map[string]interface{}), true
