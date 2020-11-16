@@ -29,12 +29,12 @@ func (r *Result) GetData(indexes ...interface{}) interface{} {
 	for _, index := range indexes {
 		switch t := index.(type) {
 		case int:
-			if temp, ok = temp.([]interface{}); !ok {
+			if _, ok = temp.([]interface{}); !ok {
 				return nil
 			}
 			temp = temp.([]interface{})[t]
 		case string:
-			if temp, ok = temp.(map[string]interface{}); !ok {
+			if _, ok = temp.(map[string]interface{}); !ok {
 				return nil
 			}
 			temp = temp.(map[string]interface{})[t]
@@ -49,7 +49,7 @@ func NewFailureResult(code, description interface{}) *Result {
 	var c, d string
 	var ok bool
 	if c, ok = code.(string); !ok {
-		c = "failure"
+		c = "UNKNOWN"
 	}
 	if d, ok = description.(string); !ok {
 		d = "unknown"
