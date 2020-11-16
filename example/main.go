@@ -10,7 +10,7 @@ import (
 func main() {
 	data, err := cas.New(cas.Option{
 		APIInstance:    api.NewAPIv2("https://pass.neu.edu.cn/tpass/", "http://202.118.31.197/"),
-		Store:          cas.DefaultStore(),
+		Store:          cas.DefaultStore(0),
 		SessionManager: cas.DefaultSessionManager(""),
 		ResultHandler: func(result *parser.Result) interface{} {
 			return result.GetData("attributes", 0, "ID_NUMBER")

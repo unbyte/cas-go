@@ -48,7 +48,7 @@ type Option struct {
 
 func New(option Option) Client {
 	if option.Store == nil {
-		option.Store = DefaultStore()
+		option.Store = DefaultStore(0)
 	}
 	if option.SessionManager == nil {
 		option.SessionManager = DefaultSessionManager("")
