@@ -100,7 +100,7 @@ func (c *client) ValidateSession(sessionID string) (interface{}, error) {
 	if data, ok := c.store.Get(sessionID); ok {
 		return data, nil
 	}
-	return nil, errors.New("it's data new session")
+	return nil, errors.New("it's a new session")
 }
 
 func (c *client) Validate(w http.ResponseWriter, r *http.Request) (interface{}, error) {

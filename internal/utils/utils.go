@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 )
 
 func GetCallbackURLFromRequest(r *http.Request) string {
@@ -37,5 +38,5 @@ func GenerateSessionID() string {
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		return ""
 	}
-	return base64.URLEncoding.EncodeToString(b)
+	return url.QueryEscape(base64.URLEncoding.EncodeToString(b))
 }

@@ -2,7 +2,6 @@ package cas
 
 import (
 	"net/http"
-	"net/url"
 )
 
 type SessionManager interface {
@@ -19,7 +18,7 @@ var _ SessionManager = &sessionManager{}
 func (s *sessionManager) Set(w http.ResponseWriter, r *http.Request, sessionID string) error {
 	http.SetCookie(w, &http.Cookie{
 		Name:     s.cookieName,
-		Value:    url.QueryEscape(sessionID),
+		Value:    sessionID,
 		Path:     "/",
 		HttpOnly: true,
 	})
