@@ -8,6 +8,7 @@ import (
 type Store interface {
 	Get(sessionID string) (interface{}, bool)
 	Set(sessionID string, data interface{}) error
+	Del(sessionID string) error
 }
 
 type store struct {
@@ -55,6 +56,15 @@ func (s *store) Get(sessionID string) (interface{}, bool) {
 func (s *store) Set(sessionID string, attr interface{}) error {
 	s.mu.Lock()
 	s.store[sessionID] = attr
+	s.mu.Unlock()
+
+	return nil
+}
+
+func (s *store) Del(sessionID string) error {
+	s.mu.Lock()
+	delete(s.store, sessionID)
+	delete(s.oldStore, sessionID)
 	s.mu.Unlock()
 
 	return nil
