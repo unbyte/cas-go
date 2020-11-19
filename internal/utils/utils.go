@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 func GetCallbackURLFromRequest(r *http.Request) string {
@@ -39,4 +40,8 @@ func GenerateSessionID() string {
 		return ""
 	}
 	return url.QueryEscape(base64.URLEncoding.EncodeToString(b))
+}
+
+func ConcatURL(service, path string) string {
+	return strings.TrimSuffix(service, "/") + "/" + strings.TrimPrefix(path, "/")
 }

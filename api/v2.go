@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/clbanning/mxj/v2/x2j-wrapper"
+	"github.com/unbyte/cas-go/internal/utils"
 	"github.com/unbyte/cas-go/parser"
 	"net/url"
 	"strings"
@@ -20,11 +21,7 @@ func (a *v2) LoginURL(option *LoginOption) string {
 		u.WriteString(url.QueryEscape(a.ServiceURL))
 		return u.String()
 	}
-	if option.CallbackURL != "" {
-		u.WriteString(url.QueryEscape(option.CallbackURL))
-	} else {
-		u.WriteString(url.QueryEscape(a.ServiceURL))
-	}
+	u.WriteString(url.QueryEscape(utils.ConcatURL(a.ServiceURL, option.CallbackPath)))
 	if option.Renew {
 		u.WriteString("&renew=true")
 	}
@@ -41,7 +38,7 @@ func (a *v2) LogoutURL(option *LogoutOption) string {
 	if option == nil {
 		u.WriteString(url.QueryEscape(a.ServiceURL))
 	} else {
-		u.WriteString(url.QueryEscape(option.CallbackURL))
+		u.WriteString(url.QueryEscape(utils.ConcatURL(a.ServiceURL, option.CallbackPath)))
 	}
 	return u.String()
 }
@@ -59,7 +56,7 @@ func (a *v2) validateURL(option *ValidateOption, endpoint string) string {
 	u.WriteString(a.ServerURL)
 	u.WriteString(endpoint)
 	u.WriteString("?service=")
-	u.WriteString(url.QueryEscape(a.ServiceURL))
+	u.WriteString(url.QueryEscape(utils.ConcatURL(a.ServiceURL, option.Path)))
 	u.WriteString("&ticket=")
 	u.WriteString(option.Ticket)
 	if option.Renew {

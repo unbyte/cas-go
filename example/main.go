@@ -15,7 +15,7 @@ func main() {
 		ResultHandler: func(result *parser.Result) interface{} {
 			return result.GetData("attributes", 0, "ID_NUMBER")
 		},
-	}).ValidateTicket("ST-1513787-tBFjv1XJJjYF0Lk2eECc-tpass")
+	}).ValidateTicket("ST-1706572-Ljtbtz9DHLX507sgSZPt-tpass")
 	fmt.Println(err)
 	fmt.Printf("%+v\n", data)
 }

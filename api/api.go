@@ -17,7 +17,7 @@ type API interface {
 
 type LoginOption struct {
 	// will overwrite service url
-	CallbackURL string
+	CallbackPath string
 
 	Renew bool
 
@@ -26,10 +26,11 @@ type LoginOption struct {
 
 type LogoutOption struct {
 	// will overwrite service url
-	CallbackURL string
+	CallbackPath string
 }
 
 type ValidateOption struct {
+	Path   string
 	Ticket string
 	Renew  bool
 	PgtURL string

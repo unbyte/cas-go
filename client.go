@@ -13,7 +13,7 @@ type Client interface {
 	RedirectToLogin(w http.ResponseWriter, r *http.Request)
 
 	// ValidateTicket validates ticket and if success, return data
-	ValidateTicket(ticket string) (interface{}, error)
+	ValidateTicket(ticket string, path ...string) (interface{}, error)
 
 	// ValidateSession validates session (ticket) and if success, return saved data
 	ValidateSession(sessionID string) (interface{}, error)
@@ -65,12 +65,17 @@ func New(option Option) Client {
 
 func (c *client) RedirectToLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, c.apiInstance.LoginURL(&api.LoginOption{
-		CallbackURL: utils.GetCallbackURLFromRequest(r),
+		CallbackPath: utils.GetCallbackURLFromRequest(r),
 	}), http.StatusFound)
 }
 
-func (c *client) ValidateTicket(ticket string) (interface{}, error) {
+func (c *client) ValidateTicket(ticket string, path ...string) (interface{}, error) {
+	mustPath := "/"
+	if len(path) > 0 {
+		mustPath = path[0]
+	}
 	u := c.apiInstance.ValidateURL(api.ValidateOption{
+		Path:   mustPath,
 		Ticket: ticket,
 		Format: c.preferredFormat,
 	})
@@ -105,7 +110,7 @@ func (c *client) ValidateSession(sessionID string) (interface{}, error) {
 
 func (c *client) Validate(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	if ticket := r.URL.Query().Get("ticket"); ticket != "" {
-		data, err := c.ValidateTicket(ticket)
+		data, err := c.ValidateTicket(ticket, r.URL.Path)
 		if err != nil {
 			return data, err
 		}
