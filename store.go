@@ -29,9 +29,9 @@ func DefaultStore(clearInterval time.Duration) Store {
 	}
 	if clearInterval > 0 {
 		go func() {
-			timer := time.NewTicker(clearInterval)
-			select {
-			case <-timer.C:
+			ticker := time.NewTicker(clearInterval)
+			for {
+				<-ticker.C
 				s.mu.Lock()
 				s.oldStore = s.store
 				s.store = make(map[string]interface{})
